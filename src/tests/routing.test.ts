@@ -7,6 +7,7 @@ import { decideDeterministically } from "../routing/deterministicRules.js";
 import { selectModel } from "../routing/policy.js";
 import { SmartRouter } from "../routing/router.js";
 import { extractTaskFeatures, taskLabelForPrompt } from "../routing/taskFeatures.js";
+import { defaultModelRegistry } from "../config/modelRegistry.js";
 
 test("maps stable IDs to centralized provider model IDs", () => {
   assert.equal(providerModelFor(DEFAULT_MODEL_CATALOG, "haiku"), "claude-haiku-4-5-20251001");
@@ -28,6 +29,15 @@ test("normal implementation is conservatively routed to Sonnet", async () => {
   const router = new SmartRouter({ ...DEFAULT_ROUTER_CONFIG, classifierEnabled: false });
   const decision = await router.route("implement an endpoint to create invoices");
   assert.equal(decision.model, "sonnet");
+});
+
+test("read-only subagent routing selects DeepSeek by scope, while main low work keeps Haiku", async () => {
+  const router = new SmartRouter({ ...DEFAULT_ROUTER_CONFIG, classifierEnabled: false, deepseekEnabled: true }, undefined, undefined, defaultModelRegistry(DEFAULT_MODEL_CATALOG, true));
+  const prompt = "Leia somente src/gateway/server.ts e informe a classe exportada";
+  assert.equal((await router.route(prompt, "main", "main")).model, "haiku");
+  assert.deepEqual(await router.route(prompt, "subagent", "subagent-readonly"), {
+    model: "deepseek", tier: "low", reason: "low-risk repository lookup or explanation", confidence: 0.94, source: "deterministic", subagentType: "deepseek-explore",
+  });
 });
 
 test("distributed race condition is deterministically routed to Opus", async () => {

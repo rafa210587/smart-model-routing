@@ -1,5 +1,5 @@
-import type { ExecutionOrigin, ModelId, RoutingDecision } from "../routing/models.js";
-export type { ExecutionOrigin, ModelId, RoutingDecision };
+import type { ExecutionOrigin, ModelId, RoutingDecision, RoutingScope } from "../routing/models.js";
+export type { ExecutionOrigin, ModelId, RoutingDecision, RoutingScope };
 
 export interface GatewayRequest {
   model?: string;
@@ -10,5 +10,5 @@ export interface GatewayRequest {
 }
 
 export interface GatewayRouter {
-  route(prompt: string, origin: ExecutionOrigin): Promise<RoutingDecision>;
+  route(prompt: string, origin: ExecutionOrigin, scope?: RoutingScope): Promise<RoutingDecision>;
 }

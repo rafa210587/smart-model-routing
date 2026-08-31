@@ -64,3 +64,14 @@ test("an explicit DeepSeek request fails clearly when the provider is disabled",
   const response = await gateway.handle(new Request("http://gateway.test/v1/messages", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ model: "deepseek-test", messages: [{ role: "user", content: "read" }] }) }));
   assert.equal(response.status, 503);
 });
+
+test("pre-tool routing uses the policy decision to select the DeepSeek read-only agent", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    const gateway = new SmartGateway({ providerBaseUrl: "https://provider.example", deepseekEnabled: true, dryRun: false, router: {
+      async route() { return { model: "deepseek", tier: "low", source: "deterministic", confidence: 0.94, reason: "low-risk repository lookup", subagentType: "deepseek-explore" }; },
+    }, catalog });
+    const response = await gateway.handle(new Request("http://gateway.test/internal/agent-route", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tool_name: "Agent", session_id: "s1", tool_input: { subagent_type: "Explore", prompt: "Read one file only", description: "inspect" } }) }));
+    assert.deepEqual(await response.json(), { hookSpecificOutput: { hookEventName: "PreToolUse", updatedInput: { subagent_type: "deepseek-explore", prompt: "Read one file only", description: "inspect" }, additionalContext: "Smart Model Routing selecionou deepseek (low) para esta tarefa de subagent: low-risk repository lookup." } });
+  } finally { globalThis.fetch = originalFetch; }
+});

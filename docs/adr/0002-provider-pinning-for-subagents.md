@@ -21,9 +21,11 @@ O primeiro request desse subagent declara `model: deepseek-v4-flash`. O gateway 
 
 O hook `SubagentStart` deixa de alterar estado de roteamento. Não é permitido trocar Claude para DeepSeek dentro de um agent já iniciado. O gateway observa o uso DeepSeek e registra custo em eventos estruturados. O stream do subagent não recebe rodapé, pois Claude Code precisa consumi-lo sem alterações para recuperar o resultado do agent.
 
+O hook `PreToolUse` do `Agent` consulta o `SmartRouter` **antes** de o subagent existir. Para uma solicitação ao agente integrado `Explore`, o `TaskAnalyzer` calcula complexidade e risco; a `PolicyEngine` escolhe o tier. No escopo `subagent-readonly`, o `ModelRegistry` pode resolver o candidato DeepSeek e informar `subagentType: deepseek-explore`; só então o hook substitui o tipo do agente. Não existe regra fixa `Explore -> DeepSeek`: tarefas fora de `LOW`, ou sem candidato compatível, mantêm o agente original.
+
 ## Consequências
 
 - A sessão principal pode usar Claude enquanto `deepseek-explore` usa DeepSeek desde a primeira chamada.
 - A configuração é opt-in e requer `DEEPSEEK_ENABLED=true` e `DEEPSEEK_API_KEY` no processo do gateway.
-- O `Explore` integrado não muda de provider. A seleção é explícita: o agente principal deve chamar `deepseek-explore` quando a tarefa for somente leitura.
+- O usuário pede um `Explore` normalmente; a escolha de DeepSeek é automática e baseada em tier, complexidade, risco e escopo de ferramentas.
 - A ADR 0001 é substituída por esta decisão.

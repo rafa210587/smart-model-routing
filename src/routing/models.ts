@@ -4,6 +4,8 @@ export type ModelId = (typeof MODEL_IDS)[number];
 
 export type DecisionSource = "deterministic" | "classifier" | "fallback";
 export type ExecutionOrigin = "main" | "subagent" | "unknown";
+/** Execution context can constrain the eligible model without naming a provider. */
+export type RoutingScope = "main" | "subagent-readonly" | "subagent-general";
 
 export interface RoutingDecision {
   model: ModelId;
@@ -11,6 +13,8 @@ export interface RoutingDecision {
   reason: string;
   confidence: number;
   source: DecisionSource;
+  /** Custom Claude Code agent to start when the resolved candidate requires one. */
+  subagentType?: string;
 }
 
 export function isModelId(value: unknown): value is ModelId {

@@ -24,6 +24,7 @@ export class SmartGateway {
     if (new URL(request.url).pathname === "/health") return Response.json({ ok: true });
     if (new URL(request.url).pathname === "/metrics") return Response.json(this.metrics.snapshot(this.sessions.size));
     if (new URL(request.url).pathname === "/internal/turn" && request.method === "POST") return this.registerHumanTurn(request);
+    if (new URL(request.url).pathname === "/internal/agent-route" && request.method === "POST") return this.routeSubagentTool(request);
     if (new URL(request.url).pathname === "/internal/subagent-start" && request.method === "POST") return this.registerSubagent(request);
     if (request.method !== "POST") return new Response("Not found", { status: 404 });
     let raw: unknown;
@@ -96,7 +97,11 @@ export class SmartGateway {
         // agent result. Lifecycle telemetry stays in the structured log.
         if (deepseek || usage.hadToolUse) return undefined;
         const agentLabel = "sessão principal";
-        return `\n\n---\nSmart Model Routing · ${agentLabel} · tarefa: ${total.taskLabel} · modelo: ${providerModelFor(this.options.catalog, logicalModel)} · tokens desta resposta: ${usage.inputTokens.toLocaleString("en-US")} entrada / ${usage.outputTokens.toLocaleString("en-US")} saída · custo desta resposta: US$ ${((usage.inputTokens / 1_000_000) * pricing.input + (usage.outputTokens / 1_000_000) * pricing.output).toFixed(6)}\nTotal da sessão (todos os agents): ${aggregate.inputTokens.toLocaleString("en-US")} entrada / ${aggregate.outputTokens.toLocaleString("en-US")} saída · US$ ${aggregate.estimatedCostUsd.toFixed(6)}`;
+        const breakdown = Object.entries(aggregate.byModel).map(([model, totalByModel]) => {
+          const label = model === "deepseek" ? "subagent DeepSeek" : model;
+          return `${label}: ${totalByModel.inputTokens.toLocaleString("en-US")} entrada / ${totalByModel.outputTokens.toLocaleString("en-US")} saída · US$ ${totalByModel.estimatedCostUsd.toFixed(6)}`;
+        }).join("\n");
+        return `\n\n---\nSmart Model Routing · ${agentLabel} · tarefa: ${total.taskLabel} · modelo: ${providerModelFor(this.options.catalog, logicalModel)} · tokens desta resposta: ${usage.inputTokens.toLocaleString("en-US")} entrada / ${usage.outputTokens.toLocaleString("en-US")} saída · custo desta resposta: US$ ${((usage.inputTokens / 1_000_000) * pricing.input + (usage.outputTokens / 1_000_000) * pricing.output).toFixed(6)}\nTotal da sessão (todos os agents): ${aggregate.inputTokens.toLocaleString("en-US")} entrada / ${aggregate.outputTokens.toLocaleString("en-US")} saída · US$ ${aggregate.estimatedCostUsd.toFixed(6)}\nPor modelo:\n${breakdown}`;
       });
     }
     catch (error) { return Response.json({ type: "error", error: { type: "api_error", message: "Upstream provider unavailable" } }, { status: 502 }); }
@@ -126,6 +131,42 @@ export class SmartGateway {
       this.logger.event("routing.fallback", { session_id: data.session_id, reason: error instanceof Error ? error.message : "unknown", source: "UserPromptSubmit" });
       return new Response(null, { status: 204 });
     }
+  }
+
+  /** Routes a requested read-only agent before Claude Code starts its first provider request. */
+  private async routeSubagentTool(request: Request): Promise<Response> {
+    let input: unknown;
+    try { input = await request.json(); } catch { return new Response("Expected JSON", { status: 400 }); }
+    if (!input || typeof input !== "object") return new Response("Expected object", { status: 400 });
+    const data = input as Record<string, unknown>;
+    const toolInput = data.tool_input;
+    if (data.tool_name !== "Agent" || !toolInput || typeof toolInput !== "object" || Array.isArray(toolInput)) return new Response(null, { status: 204 });
+    const agentInput = toolInput as Record<string, unknown>;
+    const requestedType = typeof agentInput.subagent_type === "string" ? agentInput.subagent_type : undefined;
+    const prompt = typeof agentInput.prompt === "string" ? agentInput.prompt : undefined;
+    const sessionId = typeof data.session_id === "string" ? data.session_id : "unknown";
+    if (requestedType !== "Explore" || !prompt?.trim() || (this.options.routingMode ?? "smart") !== "smart") return new Response(null, { status: 204 });
+
+    const decision = await this.options.router.route(prompt, "subagent", "subagent-readonly");
+    this.logger.event("subagent.routing.decision", {
+      session_id: sessionId,
+      requested_agent_type: requestedType,
+      selected_tier: decision.tier,
+      selected_model: decision.model,
+      selected_agent_type: decision.subagentType ?? requestedType,
+      task: taskLabelForPrompt(prompt),
+      classification_source: decision.source,
+      confidence: decision.confidence,
+      reason: decision.reason,
+    });
+    if (!decision.subagentType) return new Response(null, { status: 204 });
+    return Response.json({
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        updatedInput: { ...agentInput, subagent_type: decision.subagentType },
+        additionalContext: `Smart Model Routing selecionou ${decision.model} (${decision.tier}) para esta tarefa de subagent: ${decision.reason}.`,
+      },
+    });
   }
 
   /**
