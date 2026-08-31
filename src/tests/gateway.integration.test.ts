@@ -50,7 +50,7 @@ test("an explicitly requested DeepSeek subagent is pinned from its first request
     const gateway = new SmartGateway({ providerBaseUrl: "https://anthropic.example", deepseekBaseUrl: "https://deepseek.example/anthropic", deepseekApiKey: "deepseek-secret", deepseekEnabled: true, dryRun: false, turnSource: "hook", router: router([]), catalog });
     const send = (messages: unknown[]) => gateway.handle(new Request("http://gateway.test/v1/messages", { method: "POST", headers: { "content-type": "application/json", "x-session-id": "s1" }, body: JSON.stringify({ model: "deepseek-test", stream: true, messages }) }));
     const first = await send([{ role: "user", content: "read one file" }]);
-    assert.match(await first.text(), /Smart Model Routing · subagent · tarefa: consulta ao repositório · modelo: deepseek-test/);
+    assert.doesNotMatch(await first.text(), /Smart Model Routing/);
     await send([{ role: "assistant", content: [{ type: "tool_use", id: "t1", name: "Read", input: {} }] }, { role: "user", content: [{ type: "tool_result", tool_use_id: "t1", content: "file contents" }] }]);
     assert.deepEqual(calls.map((call) => call.url), ["https://deepseek.example/anthropic/v1/messages", "https://deepseek.example/anthropic/v1/messages"]);
     assert.deepEqual(calls.map((call) => call.model), ["deepseek-test", "deepseek-test"]);

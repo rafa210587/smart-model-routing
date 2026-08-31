@@ -19,7 +19,7 @@ model: deepseek-v4-flash
 
 O primeiro request desse subagent declara `model: deepseek-v4-flash`. O gateway reconhece esse ID, remove a credencial Anthropic da requisição, autentica no endpoint `https://api.deepseek.com/anthropic` com `x-api-key` e mantém cada continuação que também declarar esse modelo no DeepSeek. A sessão principal não declara esse modelo e continua no upstream Anthropic, sob as regras normais do router.
 
-O hook `SubagentStart` deixa de alterar estado de roteamento. Não é permitido trocar Claude para DeepSeek dentro de um agent já iniciado. O gateway observa o uso DeepSeek e registra custo. Na resposta final (sem `tool_use`), inclui um rodapé `Smart Model Routing` com tipo de execução, tarefa, modelo, tokens e custo; respostas intermediárias com ferramentas não são alteradas.
+O hook `SubagentStart` deixa de alterar estado de roteamento. Não é permitido trocar Claude para DeepSeek dentro de um agent já iniciado. O gateway observa o uso DeepSeek e registra custo em eventos estruturados. O stream do subagent não recebe rodapé, pois Claude Code precisa consumi-lo sem alterações para recuperar o resultado do agent.
 
 ## Consequências
 

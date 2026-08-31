@@ -91,11 +91,11 @@ export class SmartGateway {
         if (!total) return undefined;
         const aggregate = this.sessions.aggregateSession(sessionId);
         this.logger.event("routing.session_usage", { session_id: sessionId, turn_id: total.turnId, input_tokens: aggregate.inputTokens, output_tokens: aggregate.outputTokens, estimated_cost_usd: Number(aggregate.estimatedCostUsd.toFixed(6)), task: total.taskLabel, session_model: sessionModel, called_model: selectedProviderModel ?? sessionModel, routing_reason: total.reason ?? "no routing decision registered" });
-        // Tool-use responses are always continued by the agent; do not alter
-        // their provider state. A response without tool_use is final, so the
-        // footer safely exposes the subagent model and task in Claude Code.
-        if (usage.hadToolUse) return undefined;
-        const agentLabel = deepseek ? "subagent" : "sessão principal";
+        // DeepSeek subagent streams must remain byte-for-byte provider output.
+        // Injecting a footer into the final message made Claude Code lose the
+        // agent result. Lifecycle telemetry stays in the structured log.
+        if (deepseek || usage.hadToolUse) return undefined;
+        const agentLabel = "sessão principal";
         return `\n\n---\nSmart Model Routing · ${agentLabel} · tarefa: ${total.taskLabel} · modelo: ${providerModelFor(this.options.catalog, logicalModel)} · tokens desta resposta: ${usage.inputTokens.toLocaleString("en-US")} entrada / ${usage.outputTokens.toLocaleString("en-US")} saída · custo desta resposta: US$ ${((usage.inputTokens / 1_000_000) * pricing.input + (usage.outputTokens / 1_000_000) * pricing.output).toFixed(6)}\nTotal da sessão (todos os agents): ${aggregate.inputTokens.toLocaleString("en-US")} entrada / ${aggregate.outputTokens.toLocaleString("en-US")} saída · US$ ${aggregate.estimatedCostUsd.toFixed(6)}`;
       });
     }
