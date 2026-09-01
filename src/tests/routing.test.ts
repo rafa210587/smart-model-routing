@@ -40,6 +40,14 @@ test("read-only subagent routing selects DeepSeek by scope, while main low work 
   });
 });
 
+test("isolated standard implementation subagent routes to the DeepSeek worker", async () => {
+  const router = new SmartRouter({ ...DEFAULT_ROUTER_CONFIG, classifierEnabled: false, deepseekEnabled: true }, undefined, undefined, defaultModelRegistry(DEFAULT_MODEL_CATALOG, true));
+  const decision = await router.route("Implement a Python class with unit tests", "subagent", "subagent-execution");
+  assert.deepEqual(decision, {
+    model: "deepseek", tier: "standard", reason: "conservative standard-tier decision", confidence: 0.6, source: "fallback", subagentType: "deepseek-worker",
+  });
+});
+
 test("distributed race condition is deterministically routed to Opus", async () => {
   const router = new SmartRouter(DEFAULT_ROUTER_CONFIG);
   const decision = await router.route("debug a distributed race condition in this payment flow");

@@ -16,7 +16,10 @@ export function defaultModelRegistry(catalog: ModelCatalog, deepseekEnabled: boo
   return new ModelRegistry([
     candidate("anthropic-haiku", "haiku", "anthropic", "anthropic", catalog.haiku, "low", true, ["main", "subagent-general"], undefined, 1, 5, 10),
     candidate("deepseek-v4-flash", "deepseek", "deepseek", "anthropic-compatible", catalog.deepseek, "low", deepseekEnabled, ["subagent-readonly"], "deepseek-explore", 0.44, 1.32, 10),
-    candidate("anthropic-sonnet", "sonnet", "anthropic", "anthropic", catalog.sonnet, "standard", true, ["main", "subagent-readonly", "subagent-general"], undefined, 3, 15, 10),
+    // The worker candidate is limited to isolated implementation subagents.
+    // The policy promotes high-risk and critical work out of this tier.
+    candidate("deepseek-v4-flash-worker", "deepseek", "deepseek", "anthropic-compatible", catalog.deepseek, "standard", deepseekEnabled, ["subagent-execution"], "deepseek-worker", 0.44, 1.32, 10),
+    candidate("anthropic-sonnet", "sonnet", "anthropic", "anthropic", catalog.sonnet, "standard", true, ["main", "subagent-readonly", "subagent-execution", "subagent-general"], undefined, 3, 15, 20),
     candidate("anthropic-opus", "opus", "anthropic", "anthropic", catalog.opus, "critical", true, ["main", "subagent-readonly", "subagent-general"], undefined, 5, 25, 10),
     candidate("glm-5.3-flash", undefined, "zai", "openai-compatible", "glm-5.3-flash", "low", false, ["main"], undefined, 0.075, 0.25, 10),
     candidate("glm-4.7", undefined, "zai", "openai-compatible", "glm-4.7", "standard", false, ["main"], undefined, 0.6, 2.2, 10),

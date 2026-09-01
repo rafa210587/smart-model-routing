@@ -5,7 +5,7 @@ export type ModelId = (typeof MODEL_IDS)[number];
 export type DecisionSource = "deterministic" | "classifier" | "fallback";
 export type ExecutionOrigin = "main" | "subagent" | "unknown";
 /** Execution context can constrain the eligible model without naming a provider. */
-export type RoutingScope = "main" | "subagent-readonly" | "subagent-general";
+export type RoutingScope = "main" | "subagent-readonly" | "subagent-execution" | "subagent-general";
 
 export interface RoutingDecision {
   model: ModelId;

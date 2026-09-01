@@ -13,7 +13,7 @@ Introduzir quatro tiers independentes de provider:
 | Tier | Objetivo |
 | --- | --- |
 | `LOW` | Menor custo e latência aceitáveis para consultas e exploração simples |
-| `STANDARD` | Melhor equilíbrio para trabalho diário de engenharia |
+| `STANDARD` | Melhor equilíbrio para trabalho diário de engenharia e implementações isoladas de risco controlado |
 | `HIGH` | Raciocínio, implementação e agentes complexos |
 | `CRITICAL` | Mudanças de alto impacto, segurança, arquitetura e decisões irreversíveis |
 
@@ -32,6 +32,8 @@ ProviderAdapter -> chamada e resposta do provider
 - `ProviderAdapter` contém a conversão de protocolo e autenticação de cada provider: Anthropic nativo, Anthropic-compatível ou OpenAI-compatível.
 
 Cada sessão principal ou subagent fica pinado ao candidato escolhido durante todo o ciclo de ferramentas. Uma troca de provider no meio da conversa é proibida; fallback cria uma nova execução ou retorna erro explícito.
+
+No despacho de subagents, o tipo de agente representa o escopo de ferramentas (`Explore` é somente leitura; `general-purpose` pode executar). O gateway passa esse escopo ao `ModelResolver`; ele não escolhe DeepSeek pela palavra "DeepSeek" no prompt. Inicialmente, `deepseek-v4-flash-worker` é elegível para `STANDARD` somente em subagents de execução isolada. Trabalho de alto risco ou crítico sobe de tier e não é elegível para esse candidato.
 
 ## Catálogo inicial proposto
 

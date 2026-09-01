@@ -145,9 +145,10 @@ export class SmartGateway {
     const requestedType = typeof agentInput.subagent_type === "string" ? agentInput.subagent_type : undefined;
     const prompt = typeof agentInput.prompt === "string" ? agentInput.prompt : undefined;
     const sessionId = typeof data.session_id === "string" ? data.session_id : "unknown";
-    if (requestedType !== "Explore" || !prompt?.trim() || (this.options.routingMode ?? "smart") !== "smart") return new Response(null, { status: 204 });
+    const scope = requestedType === "Explore" ? "subagent-readonly" : requestedType === "general-purpose" ? "subagent-execution" : undefined;
+    if (!scope || !prompt?.trim() || (this.options.routingMode ?? "smart") !== "smart") return new Response(null, { status: 204 });
 
-    const decision = await this.options.router.route(prompt, "subagent", "subagent-readonly");
+    const decision = await this.options.router.route(prompt, "subagent", scope);
     this.logger.event("subagent.routing.decision", {
       session_id: sessionId,
       requested_agent_type: requestedType,

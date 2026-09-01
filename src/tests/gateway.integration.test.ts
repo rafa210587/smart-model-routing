@@ -75,3 +75,12 @@ test("pre-tool routing uses the policy decision to select the DeepSeek read-only
     assert.deepEqual(await response.json(), { hookSpecificOutput: { hookEventName: "PreToolUse", updatedInput: { subagent_type: "deepseek-explore", prompt: "Read one file only", description: "inspect" }, additionalContext: "Smart Model Routing selecionou deepseek (low) para esta tarefa de subagent: low-risk repository lookup." } });
   } finally { globalThis.fetch = originalFetch; }
 });
+
+test("pre-tool routing selects the implementation worker from a standard-tier decision", async () => {
+  const gateway = new SmartGateway({ providerBaseUrl: "https://provider.example", deepseekEnabled: true, dryRun: false, router: {
+    async route() { return { model: "deepseek", tier: "standard", source: "fallback", confidence: 0.6, reason: "conservative standard-tier decision", subagentType: "deepseek-worker" }; },
+  }, catalog });
+  const response = await gateway.handle(new Request("http://gateway.test/internal/agent-route", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tool_name: "Agent", session_id: "s1", tool_input: { subagent_type: "general-purpose", prompt: "Implement a Python class", description: "implement" } }) }));
+  const payload = await response.json() as { hookSpecificOutput: { updatedInput: { subagent_type: string } } };
+  assert.equal(payload.hookSpecificOutput.updatedInput.subagent_type, "deepseek-worker");
+});
